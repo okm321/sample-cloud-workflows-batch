@@ -1,0 +1,25 @@
+# child: 翌00:00 JST まで待ってから日次集計を実行
+# サンプル用に Job 呼び出しを sys.log で代替 (sleep のデモは残す)
+#
+# parent_started_at_unix に 0 を渡すと target_unix が過去になり sleep=0 で即実行 (手動実行用)
+main:
+  params: [args]
+  steps:
+    - compute_target:
+        assign:
+          - parent_started: ${args.parent_started_at_unix}
+          - parent_jst_date: ${text.split(time.format(parent_started, "Asia/Tokyo"), "T")[0]}
+          - parent_midnight_unix: ${time.parse(parent_jst_date + "T00:00:00+09:00")}
+          - target_unix: ${parent_midnight_unix + 86400}
+
+    - wait_until_midnight:
+        # 既に過ぎていれば0秒で即実行
+        call: sys.sleep
+        args:
+          seconds: ${math.max(0, target_unix - sys.now())}
+
+    - run:
+        call: sys.log
+        args:
+          severity: INFO
+          text: daily-aggregation executed

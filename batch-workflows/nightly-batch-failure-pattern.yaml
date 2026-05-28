@@ -1,0 +1,74 @@
+# parent: 上流失敗でも下流続行 (try/except で握りつぶす)
+# サンプル用に child へ should_fail: true を渡し、意図的に失敗させてハンドリングをデモする
+main:
+  params: [args]
+  steps:
+    - init_default:
+        assign:
+          - parent_started_at_unix: ${sys.now()}
+    - override_if_arg:
+        switch:
+          - condition: ${args != null and "parent_started_at_unix" in args}
+            assign:
+              - parent_started_at_unix: ${args.parent_started_at_unix}
+
+    - run_data_prep:
+        try:
+          steps:
+            - run_data_prep_parallel:
+                parallel:
+                  branches:
+                    - call_prep_a:
+                        steps:
+                          - run_a:
+                              call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
+                              args:
+                                workflow_id: data-prep-a
+                                argument:
+                                  should_fail: true
+                                connector_params:
+                                  timeout: 31536000
+                    - call_prep_b:
+                        steps:
+                          - run_b:
+                              call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
+                              args:
+                                workflow_id: data-prep-b
+                                connector_params:
+                                  timeout: 31536000
+        except:
+          # raiseしないことで下流に進む
+          as: e
+          steps:
+            - log_data_prep_failed:
+                call: sys.log
+                args:
+                  severity: ERROR
+                  text: '${"data-prep failed but continuing to business-process: " + json.encode_to_string(e)}'
+
+    - run_business_process:
+        try:
+          call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
+          args:
+            workflow_id: business-process
+            argument:
+              should_fail: true
+            connector_params:
+              timeout: 31536000
+        except:
+          as: e
+          steps:
+            - log_business_process_failed:
+                call: sys.log
+                args:
+                  severity: ERROR
+                  text: '${"business-process failed but continuing to daily-aggregation: " + json.encode_to_string(e)}'
+
+    - run_daily_aggregation:
+        call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
+        args:
+          workflow_id: daily-aggregation
+          argument:
+            parent_started_at_unix: ${parent_started_at_unix}
+          connector_params:
+            timeout: 31536000

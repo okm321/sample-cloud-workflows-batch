@@ -1,0 +1,49 @@
+# parent: 上流失敗で下流停止 (try/except なし)
+main:
+  params: [args]
+  steps:
+    - init_default:
+        assign:
+          - parent_started_at_unix: ${sys.now()}
+    - override_if_arg:
+        # Cloud Workflowsにはdefault()がないのでswitchで上書き
+        switch:
+          - condition: ${args != null and "parent_started_at_unix" in args}
+            assign:
+              - parent_started_at_unix: ${args.parent_started_at_unix}
+
+    - run_data_prep:
+        parallel:
+          branches:
+            - call_prep_a:
+                steps:
+                  - run_a:
+                      call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
+                      args:
+                        workflow_id: data-prep-a
+                        connector_params:
+                          timeout: 31536000
+            - call_prep_b:
+                steps:
+                  - run_b:
+                      call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
+                      args:
+                        workflow_id: data-prep-b
+                        connector_params:
+                          timeout: 31536000
+
+    - run_business_process:
+        call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
+        args:
+          workflow_id: business-process
+          connector_params:
+            timeout: 31536000
+
+    - run_daily_aggregation:
+        call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
+        args:
+          workflow_id: daily-aggregation
+          argument:
+            parent_started_at_unix: ${parent_started_at_unix}
+          connector_params:
+            timeout: 31536000

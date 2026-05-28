@@ -1,0 +1,41 @@
+# child: 業務処理4つを並列実行 (parallel.branches)
+# サンプル用に sys.log で代替 (本番では googleapis.run.v1.namespaces.jobs.run を呼ぶ)
+# should_fail: true で branch_1 だけ失敗 → parallel が UnhandledBranchError を投げるデモ
+main:
+  params: [args]
+  steps:
+    - run_in_parallel:
+        parallel:
+          branches:
+            - branch_1:
+                steps:
+                  - maybe_fail_1:
+                      switch:
+                        - condition: ${args != null and "should_fail" in args and args.should_fail}
+                          raise: business-process-1 intentionally failed
+                  - run_1:
+                      call: sys.log
+                      args:
+                        severity: INFO
+                        text: business-process-1 executed
+            - branch_2:
+                steps:
+                  - run_2:
+                      call: sys.log
+                      args:
+                        severity: INFO
+                        text: business-process-2 executed
+            - branch_3:
+                steps:
+                  - run_3:
+                      call: sys.log
+                      args:
+                        severity: INFO
+                        text: business-process-3 executed
+            - branch_4:
+                steps:
+                  - run_4:
+                      call: sys.log
+                      args:
+                        severity: INFO
+                        text: business-process-4 executed

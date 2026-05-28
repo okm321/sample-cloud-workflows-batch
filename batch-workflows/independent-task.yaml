@@ -1,0 +1,9 @@
+# standalone: nightly-batchとは独立した別系統の更新
+# サンプル用に sys.log で代替 (本番では googleapis.run.v1.namespaces.jobs.run を呼ぶ)
+main:
+  steps:
+    - run:
+        call: sys.log
+        args:
+          severity: INFO
+          text: independent-task executed

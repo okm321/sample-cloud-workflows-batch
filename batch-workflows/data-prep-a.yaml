@@ -1,0 +1,15 @@
+# child: データ準備A
+# サンプル用に sys.log で代替 (本番では googleapis.run.v1.namespaces.jobs.run を呼ぶ)
+# should_fail: true を渡すと意図的に失敗する (failure-pattern のデモ用)
+main:
+  params: [args]
+  steps:
+    - maybe_fail:
+        switch:
+          - condition: ${args != null and "should_fail" in args and args.should_fail}
+            raise: data-prep-a intentionally failed
+    - run:
+        call: sys.log
+        args:
+          severity: INFO
+          text: data-prep-a executed
